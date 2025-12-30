@@ -215,6 +215,84 @@ describe('Transactions Routes', () => {
     });
   });
 
+  describe('GET /budgets/:budgetSyncId/transactions', () => {
+    it('should register the route', () => {
+      const transactionsModule = require('../../../src/v1/routes/transactions');
+      transactionsModule(mockRouter);
+
+      expect(mockRouter.get).toHaveBeenCalledWith(
+        '/budgets/:budgetSyncId/transactions',
+        expect.any(Function)
+      );
+    });
+
+    it('should return all transactions list for a budget', async () => {
+      const transactionsModule = require('../../../src/v1/routes/transactions');
+      transactionsModule(mockRouter);
+
+      const handler = handlers['GET /budgets/:budgetSyncId/transactions'];
+      mockReq.query.since_date = '2023-08-01';
+
+      await handler(mockReq, mockRes, mockNext);
+
+      expect(mockBudget.getTransactions).toHaveBeenCalledWith(undefined, '2023-08-01', undefined);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({ id: 'txn1' }),
+        ]),
+      });
+    });
+
+    it('should reject without since_date', async () => {
+      const transactionsModule = require('../../../src/v1/routes/transactions');
+      transactionsModule(mockRouter);
+
+      const handler = handlers['GET /budgets/:budgetSyncId/transactions'];
+
+      await handler(mockReq, mockRes, mockNext);
+
+      expect(mockNext).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('should support pagination with page and limit', async () => {
+      const transactionsModule = require('../../../src/v1/routes/transactions');
+      transactionsModule(mockRouter);
+
+      const handler = handlers['GET /budgets/:budgetSyncId/transactions'];
+      mockReq.query.since_date = '2023-08-01';
+      mockReq.query.page = '1';
+      mockReq.query.limit = '10';
+      mockBudget.getTransactions.mockResolvedValueOnce(
+        Array(15).fill(null).map((_, i) => ({
+          id: `txn${i}`,
+          account: 'acc1',
+          date: '2023-08-01',
+          amount: -50,
+        }))
+      );
+
+      await handler(mockReq, mockRes, mockNext);
+
+      expect(mockRes.json).toHaveBeenCalled();
+      const data = mockRes.json.mock.calls[0][0].data;
+      expect(data).toHaveLength(10);
+    });
+
+    it('should handle errors from getTransactions', async () => {
+      const transactionsModule = require('../../../src/v1/routes/transactions');
+      transactionsModule(mockRouter);
+
+      const handler = handlers['GET /budgets/:budgetSyncId/transactions'];
+      mockReq.query.since_date = '2023-08-01';
+      const error = new Error('Database error');
+      mockBudget.getTransactions.mockRejectedValueOnce(error);
+
+      await handler(mockReq, mockRes, mockNext);
+
+      expect(mockNext).toHaveBeenCalledWith(error);
+    });
+  });
+
   describe('POST /budgets/:budgetSyncId/accounts/:accountId/transactions', () => {
     it('should register the route', () => {
       const transactionsModule = require('../../../src/v1/routes/transactions');

@@ -212,6 +212,82 @@ module.exports = (router) => {
     }
   });
 
+  /**
+   * @swagger
+   * /budgets/{budgetSyncId}/transactions:
+   *   get:
+   *     summary: Returns list of transactions for all accounts
+   *     tags: [Transactions]
+   *     security:
+   *       - apiKey: []
+   *     parameters:
+   *       - $ref: '#/components/parameters/budgetSyncId'
+   *       - $ref: '#/components/parameters/sinceDate'
+   *       - $ref: '#/components/parameters/untilDate'
+   *       - $ref: '#/components/parameters/page'
+   *       - $ref: '#/components/parameters/limit'
+   *       - $ref: '#/components/parameters/budgetEncryptionPassword'
+   *     responses:
+   *       '200':
+   *         description: The list of transactions for all accounts
+   *         content:
+   *           application/json:
+   *             schema:
+   *               required:
+   *                 - data
+   *               type: object
+   *               properties:
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/Transaction'
+   *               examples:
+   *                 - data:
+   *                   - id: "4d194727-2ab2-4b50-a1aa-d506f2790e68"
+   *                     is_parent: false
+   *                     is_child: false
+   *                     parent_id: null
+   *                     account: "729cb492-4eab-468b-9522-75d455cded22"
+   *                     category: "9fa2550c-c3ff-498b-8df6-e0fbe2a62e0e"
+   *                     amount: -7374
+   *                     payee: "c5647552-a5b1-4fea-a2bd-4aa2e4d03938"
+   *                     notes: null
+   *                     date: "2023-06-23"
+   *                     imported_id: null
+   *                     error: null
+   *                     imported_payee: "Remitly"
+   *                     starting_balance_flag: false
+   *                     transfer_id: null
+   *                     sort_order: 1693171043936
+   *                     cleared: true
+   *                     tombstone: false
+   *                     schedule: null
+   *                     subtransactions: []
+   *       '400':
+   *         $ref: '#/components/responses/400'
+   *       '404':
+   *         $ref: '#/components/responses/404'
+   *       '500':
+   *         $ref: '#/components/responses/500'
+   */
+  router.get('/budgets/:budgetSyncId/transactions', async (req, res, next) => {
+    try {
+      if (!req.query.since_date) {
+        throw new Error('since_date query parameter is required');
+      }
+      let allTransactions = await res.locals.budget.getTransactions(undefined, req.query.since_date, req.query.until_date);
+      if (req.query.page || req.query.limit) {
+        validatePaginationParameters(req);
+        res.json({ 'data': paginate(allTransactions, parseInt(req.query.page), parseInt(req.query.limit)) });
+      } else {
+        res.json({ 'data': allTransactions });
+      }
+    }
+    catch (err) {
+      next(err);
+    }
+  });
+
   router.post('/budgets/:budgetSyncId/accounts/:accountId/transactions', async (req, res, next) => {
     try {
       validateTransactionBody(req.body.transaction);
